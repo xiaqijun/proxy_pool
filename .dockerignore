@@ -1,0 +1,16 @@
+.git
+.idea
+.github
+__pycache__
+*.pyc
+*.pyo
+.pytest_cache
+.coverage
+.tox
+htmlcov
+data
+log
+site
+.env
+dashboard/node_modules
+dashboard/dist

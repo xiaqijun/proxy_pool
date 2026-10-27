@@ -5,10 +5,28 @@ services:
     container_name: proxy_pool
     ports:
       - "5010:5010"
+      - "5011:5011"
     links:
       - proxy_redis
+    volumes:
+      - ./data:/app/data
     environment:
       DB_CONN: "redis://@proxy_redis:6379/0"
+      # 代理更换方式: random / round_robin / weighted
+      PROXY_STRATEGY: "random"
+      GATEWAY_STRATEGY: "random"
+      # 网关认证示例，留空表示不认证
+      # GATEWAY_AUTH: "user:password"
+      # 网关 WAF 检测
+      WAF_DETECT_ENABLED: "true"
+      WAF_SCORE_THRESHOLD: "2"
+      # WAF_CUSTOM_KEYWORDS: "custom block page,自定义拦截页面"
+      # WAF_CUSTOM_STATUS: "418"
+      # 监控工作台
+      MONITOR_ENABLED: "true"
+      MONITOR_AUTH_USER: "admin"
+      MONITOR_AUTH_PASSWORD: "change-me"
+      MONITOR_DB_PATH: "data/monitor.db"
   proxy_redis:
     image: "redis"
     container_name: proxy_redis

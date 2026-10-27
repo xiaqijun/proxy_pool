@@ -86,7 +86,10 @@ nav:
       - 项目结构: project-structure.md
       - 配置参考: configuration.md
       - API 使用: api.md
+      - 稳定代理网关: gateway.md
+      - 监控工作台: dashboard.md
       - Docker 部署: docker.md
+      - 托管部署: deployment.md
   - 开发指南:
       - 扩展代理源: extending/fetcher.md
       - 扩展校验器: extending/validator.md

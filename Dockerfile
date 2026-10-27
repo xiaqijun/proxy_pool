@@ -18,6 +18,6 @@ RUN apk add musl-dev gcc libxml2-dev libxslt-dev && \
 
 COPY . .
 
-EXPOSE 5010
+EXPOSE 5010 5011
 
 ENTRYPOINT ["tini", "--", "bash", "proxy_pool.sh", "start", "--fg"]

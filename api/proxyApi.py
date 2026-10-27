@@ -22,12 +22,21 @@ from flask import Flask, jsonify, request
 
 from util.six import iteritems
 from helper.proxy import Proxy
+from helper.strategy import (
+    STRATEGY_DESCRIPTIONS,
+    STRATEGY_RANDOM,
+    SUPPORTED_STRATEGIES,
+    UnknownStrategyError,
+    normalizeStrategy,
+)
 from handler.proxyHandler import ProxyHandler
 from handler.configHandler import ConfigHandler
+from monitor.monitorApi import initMonitorApp
 
 app = Flask(__name__)
 conf = ConfigHandler()
 proxy_handler = ProxyHandler()
+initMonitorApp(app, proxy_handler)
 
 
 class JsonResponse(Response):
@@ -42,25 +51,79 @@ class JsonResponse(Response):
 app.response_class = JsonResponse
 
 api_list = [
-    {"url": "/get", "params": "type: ''https'|''", "desc": "get a proxy"},
-    {"url": "/pop", "params": "", "desc": "get and delete a proxy"},
+    {"url": "/get", "params": "type: ''https'|''; strategy: 'random'|'round_robin'|'weighted'; format: 'json'|'text'",
+     "desc": "get a proxy with the specified strategy"},
+    {"url": "/pop", "params": "type: ''https'|''", "desc": "get and delete a proxy"},
     {"url": "/delete", "params": "proxy: 'e.g. 127.0.0.1:8080'", "desc": "delete an unable proxy"},
     {"url": "/all", "params": "type: ''https'|''", "desc": "get all proxy from proxy pool"},
-    {"url": "/count", "params": "", "desc": "return proxy count"}
+    {"url": "/count", "params": "", "desc": "return proxy count"},
+    {"url": "/strategies", "params": "", "desc": "list supported proxy selection strategies"},
+    {"url": "/gateway", "params": "", "desc": "show gateway and WAF config"},
+    {"url": "/dashboard/", "params": "requires login", "desc": "monitoring dashboard"},
     # 'refresh': 'refresh proxy pool',
 ]
 
 
+def _requestedStrategy():
+    """兼容 strategy 和 mode 两个参数名"""
+    return request.args.get("strategy") or request.args.get("mode")
+
+
+def _defaultStrategy():
+    try:
+        default = normalizeStrategy(conf.defaultStrategy, default=STRATEGY_RANDOM)
+    except UnknownStrategyError:
+        default = STRATEGY_RANDOM
+
+    # 监控工作台可以在线覆盖默认策略
+    try:
+        from monitor.monitorStore import MonitorStore
+        effective = MonitorStore().getRuntimeStrategy(default)
+        return normalizeStrategy(effective, default=default)
+    except Exception:
+        return default
+
+
 @app.route('/')
 def index():
-    return {'url': api_list}
+    return {'url': api_list, 'dashboard': '/dashboard/'}
 
 
 @app.route('/get/')
 def get():
     https = request.args.get("type", "").lower() == 'https'
-    proxy = proxy_handler.get(https)
-    return proxy.to_dict if proxy else {"code": 0, "src": "no proxy"}
+    output_format = request.args.get("format", "").lower()
+
+    try:
+        strategy = normalizeStrategy(_requestedStrategy(), default=None)
+    except UnknownStrategyError:
+        return {
+            "code": 0,
+            "src": "unknown strategy",
+            "supported": list(SUPPORTED_STRATEGIES),
+        }, 400
+
+    # 默认配置为 random 时保持原有 /get 行为；配置为其他策略时按配置执行
+    if strategy is None:
+        default_strategy = _defaultStrategy()
+        if default_strategy != STRATEGY_RANDOM:
+            strategy = default_strategy
+
+    if strategy and strategy != STRATEGY_RANDOM:
+        key = "api:get:%s" % ("https" if https else "http")
+        proxy = proxy_handler.get(https, strategy=strategy, key=key)
+    else:
+        # random 直接复用原有 DbClient.get 随机逻辑，避免全量读取代理
+        proxy = proxy_handler.get(https)
+
+    if not proxy:
+        if output_format == "text":
+            return Response("no proxy", status=503, mimetype="text/plain")
+        return {"code": 0, "src": "no proxy"}
+
+    if output_format == "text":
+        return Response(proxy.proxy, mimetype="text/plain")
+    return proxy.to_dict
 
 
 @app.route('/pop/')
@@ -101,6 +164,39 @@ def getCount():
         for source in proxy.source.split('/'):
             source_dict[source] = source_dict.get(source, 0) + 1
     return {"http_type": http_type_dict, "source": source_dict, "count": len(proxies)}
+
+
+@app.route('/strategies/')
+def getStrategies():
+    return {
+        "default": _defaultStrategy(),
+        "supported": [
+            {"name": name, "description": STRATEGY_DESCRIPTIONS[name]}
+            for name in SUPPORTED_STRATEGIES
+        ],
+    }
+
+
+@app.route('/gateway/')
+def getGateway():
+    return {
+        "enabled": conf.gatewayEnabled,
+        "address": "%s:%s" % (conf.gatewayHost, conf.gatewayPort),
+        "strategy": conf.gatewayStrategy,
+        "auth": bool(conf.gatewayAuth),
+        "retry": conf.gatewayRetry,
+        "connect_timeout": conf.gatewayConnectTimeout,
+        "header_timeout": conf.gatewayHeaderTimeout,
+        "waf": {
+            "enabled": conf.wafDetectEnabled,
+            "score_threshold": conf.wafScoreThreshold,
+            "body_prefix_size": conf.wafBodyPrefixSize,
+            "max_replay_body": conf.wafMaxReplayBody,
+            "custom_headers": len(conf.wafCustomHeaders),
+            "custom_keywords": len(conf.wafCustomKeywords),
+            "custom_status": conf.wafCustomStatus,
+        },
+    }
 
 
 def runFlask():

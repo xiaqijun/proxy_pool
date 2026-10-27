@@ -86,14 +86,29 @@ class TestRunProxyCheck:
         mock_fetch.assert_not_called()
 
 
+class TestRecordSnapshot:
+
+    @patch("monitor.monitorStore.MonitorStore")
+    @patch("helper.scheduler.ProxyHandler")
+    def test_records_proxy_snapshot(self, mock_ph_cls, mock_store_cls):
+        proxies = [MagicMock(), MagicMock()]
+        mock_ph = MagicMock()
+        mock_ph.getAll.return_value = proxies
+        mock_ph_cls.return_value = mock_ph
+
+        _get_attr("__recordSnapshot")()
+
+        mock_store_cls.return_value.recordProxySnapshot.assert_called_once_with(proxies)
+
+
 class TestRunScheduler:
 
     @patch("helper.scheduler.BlockingScheduler")
     @patch("helper.scheduler.__runProxyFetch")
     @patch("helper.scheduler.ConfigHandler")
     @patch("helper.scheduler.LogHandler")
-    def test_adds_two_jobs(self, mock_log, mock_conf_cls, mock_fetch, mock_sched_cls):
-        """runScheduler 添加两个定时任务"""
+    def test_adds_three_jobs(self, mock_log, mock_conf_cls, mock_fetch, mock_sched_cls):
+        """runScheduler 添加采集、校验、快照三个定时任务"""
         mock_conf = MagicMock()
         mock_conf.timezone = "Asia/Shanghai"
         mock_conf_cls.return_value = mock_conf
@@ -102,7 +117,7 @@ class TestRunScheduler:
 
         scheduler_mod.runScheduler()
 
-        assert mock_sched.add_job.call_count == 2
+        assert mock_sched.add_job.call_count == 3
 
     @patch("helper.scheduler.BlockingScheduler")
     @patch("helper.scheduler.__runProxyFetch")
@@ -141,3 +156,22 @@ class TestRunScheduler:
         second_call = calls[1]
         assert second_call[0][1] == "interval"
         assert second_call[1]["minutes"] == 2
+
+    @patch("helper.scheduler.BlockingScheduler")
+    @patch("helper.scheduler.__runProxyFetch")
+    @patch("helper.scheduler.ConfigHandler")
+    @patch("helper.scheduler.LogHandler")
+    def test_snapshot_job_interval_1min(self, mock_log, mock_conf_cls, mock_fetch, mock_sched_cls):
+        """快照任务间隔 1 分钟"""
+        mock_conf = MagicMock()
+        mock_conf.timezone = "Asia/Shanghai"
+        mock_conf_cls.return_value = mock_conf
+        mock_sched = MagicMock()
+        mock_sched_cls.return_value = mock_sched
+
+        scheduler_mod.runScheduler()
+
+        calls = mock_sched.add_job.call_args_list
+        third_call = calls[2]
+        assert third_call[0][1] == "interval"
+        assert third_call[1]["minutes"] == 1

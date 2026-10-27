@@ -12,6 +12,7 @@
 """
 __author__ = 'JHao'
 
+import contextlib
 import sys
 import os
 from unittest.mock import MagicMock, patch
@@ -36,6 +37,25 @@ def reset_singleton():
     yield
     Singleton._inst.clear()
     Singleton._inst.update(saved)
+
+
+@pytest.fixture(autouse=True)
+def isolate_monitor(tmp_path, monkeypatch):
+    """每个测试使用独立的监控 SQLite 文件和登录凭据"""
+    monkeypatch.setenv("MONITOR_ENABLED", "true")
+    monkeypatch.setenv("MONITOR_DB_PATH", str(tmp_path / "monitor.db"))
+    monkeypatch.setenv("MONITOR_AUTH_USER", "admin")
+    monkeypatch.setenv("MONITOR_AUTH_PASSWORD", "test-password")
+
+    from monitor import monitorApi
+    with monitorApi._login_lock:
+        monitorApi._login_failures.clear()
+
+    yield
+
+    from monitor.monitorStore import MonitorStore
+    with contextlib.suppress(Exception):
+        MonitorStore().stop()
 
 
 # --------------- Proxy 工厂 ---------------
@@ -99,3 +119,9 @@ def app():
 def client(app):
     """Flask test client"""
     return app.test_client()
+
+
+@pytest.fixture
+def mocks(app):
+    """快捷访问 app._test_mocks"""
+    return app._test_mocks

@@ -32,6 +32,7 @@ class TestIndex:
         data = resp.get_json()
         assert "url" in data
         assert len(data["url"]) > 0
+        assert data["dashboard"] == "/dashboard/"
 
 
 class TestGet:
@@ -70,6 +71,86 @@ class TestGet:
 
         client.get("/get/")
         mocks["get"].assert_called_with(False)
+
+
+class TestGetStrategy:
+
+    def test_get_with_strategy(self, client, mocks):
+        proxy = Proxy("1.2.3.4:8080", source="test")
+        mocks["get"].return_value = proxy
+
+        resp = client.get("/get/?strategy=round_robin")
+        assert resp.status_code == 200
+        assert resp.get_json()["proxy"] == "1.2.3.4:8080"
+        mocks["get"].assert_called_once_with(
+            False, strategy="round_robin", key="api:get:http"
+        )
+
+    def test_get_with_random_uses_default_path(self, client, mocks):
+        proxy = Proxy("1.2.3.4:8080", source="test")
+        mocks["get"].return_value = proxy
+
+        resp = client.get("/get/?strategy=random")
+        assert resp.status_code == 200
+        mocks["get"].assert_called_once_with(False)
+
+    def test_get_with_mode_alias(self, client, mocks):
+        proxy = Proxy("1.2.3.4:8080", source="test")
+        mocks["get"].return_value = proxy
+
+        resp = client.get("/get/?mode=weighted&type=https")
+        assert resp.status_code == 200
+        mocks["get"].assert_called_once_with(
+            True, strategy="weighted", key="api:get:https"
+        )
+
+    def test_get_unknown_strategy(self, client, mocks):
+        resp = client.get("/get/?strategy=not-exist")
+        assert resp.status_code == 400
+        data = resp.get_json()
+        assert data["src"] == "unknown strategy"
+        assert mocks["get"].not_called
+
+    def test_get_format_text(self, client, mocks):
+        proxy = Proxy("1.2.3.4:8080", source="test")
+        mocks["get"].return_value = proxy
+
+        resp = client.get("/get/?format=text")
+        assert resp.status_code == 200
+        assert resp.mimetype == "text/plain"
+        assert resp.get_data(as_text=True) == "1.2.3.4:8080"
+
+    def test_get_format_text_no_proxy(self, client, mocks):
+        mocks["get"].return_value = None
+
+        resp = client.get("/get/?format=text")
+        assert resp.status_code == 503
+        assert resp.get_data(as_text=True) == "no proxy"
+
+
+class TestStrategies:
+
+    def test_strategies_endpoint(self, client):
+        resp = client.get("/strategies/")
+        assert resp.status_code == 200
+        data = resp.get_json()
+        names = [item["name"] for item in data["supported"]]
+        assert names == ["random", "round_robin", "weighted"]
+        assert data["default"] in names
+        assert all(item["description"] for item in data["supported"])
+
+
+class TestGatewayInfo:
+
+    def test_gateway_endpoint(self, client):
+        resp = client.get("/gateway/")
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["address"].endswith(":5011")
+        assert data["strategy"] in ("random", "round_robin", "weighted")
+        assert isinstance(data["auth"], bool)
+        assert data["waf"]["enabled"] is True
+        assert data["waf"]["score_threshold"] >= 1
 
 
 class TestPop:

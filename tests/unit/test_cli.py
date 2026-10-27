@@ -47,6 +47,20 @@ class TestCli:
         assert result.exit_code == 0
         mock_server.assert_called_once()
 
+    @patch("proxyPool.startGateway")
+    def test_gateway_command(self, mock_gateway, runner):
+        """gateway 命令调用 startGateway"""
+        result = runner.invoke(cli, ["gateway"])
+        assert result.exit_code == 0
+        mock_gateway.assert_called_once()
+
+    @patch("proxyPool.startAll")
+    def test_all_command(self, mock_all, runner):
+        """all 命令调用 startAll"""
+        result = runner.invoke(cli, ["all"])
+        assert result.exit_code == 0
+        mock_all.assert_called_once()
+
     @patch("handler.configHandler.ConfigHandler")
     @patch("helper.fetch._discover_fetchers")
     def test_fetcher_command(self, mock_discover, mock_conf_cls, runner):

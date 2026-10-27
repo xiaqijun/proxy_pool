@@ -13,7 +13,7 @@
 __author__ = 'JHao'
 
 import click
-from helper.launcher import startServer, startScheduler
+from helper.launcher import startServer, startScheduler, startGateway, startAll
 from setting import BANNER, VERSION
 
 CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
@@ -37,6 +37,20 @@ def server():
     """ 启动api服务 """
     click.echo(BANNER)
     startServer()
+
+
+@cli.command(name="gateway")
+def gateway():
+    """ 启动稳定代理网关 """
+    click.echo(BANNER)
+    startGateway()
+
+
+@cli.command(name="all")
+def all():
+    """ 同时启动API服务和代理网关 """
+    click.echo(BANNER)
+    startAll()
 
 
 @cli.command(name="fetcher")

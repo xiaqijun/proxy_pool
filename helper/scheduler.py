@@ -44,6 +44,18 @@ def __runProxyCheck():
     Checker("use", proxy_queue)
 
 
+def __recordSnapshot():
+    """记录代理池快照，供监控工作台展示趋势"""
+    try:
+        from monitor.monitorStore import MonitorStore
+        proxy_handler = ProxyHandler()
+        MonitorStore().recordProxySnapshot(proxy_handler.getAll())
+    except Exception as error:
+        LogHandler("scheduler").warning(
+            "Record proxy snapshot failed: %s" % error, exc_info=True
+        )
+
+
 def runScheduler():
     __runProxyFetch()
 
@@ -53,6 +65,7 @@ def runScheduler():
 
     scheduler.add_job(__runProxyFetch, 'interval', minutes=5, id="proxy_fetch", name="proxy采集")
     scheduler.add_job(__runProxyCheck, 'interval', minutes=2, id="proxy_check", name="proxy检查")
+    scheduler.add_job(__recordSnapshot, 'interval', minutes=1, id="proxy_snapshot", name="代理池快照")
     executors = {
         'default': {'type': 'threadpool', 'max_workers': 20},
         'processpool': ProcessPoolExecutor(max_workers=5)

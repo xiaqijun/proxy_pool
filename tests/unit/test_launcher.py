@@ -38,6 +38,48 @@ class TestStartScheduler:
             mock_before.assert_called_once()
 
 
+class TestStartGateway:
+
+    def test_calls_before_start_then_gateway(self):
+        """startGateway 先调用 __beforeStart 再调用 runGateway"""
+        with patch.object(launcher_mod, "__beforeStart") as mock_before, \
+             patch("gateway.proxyGateway.runGateway") as mock_gateway:
+            launcher_mod.startGateway()
+            mock_before.assert_called_once()
+            mock_gateway.assert_called_once()
+
+
+class TestStartAll:
+
+    def test_starts_api_only_when_gateway_disabled(self):
+        with patch.object(launcher_mod, "__beforeStart"), \
+             patch.object(launcher_mod, "ConfigHandler") as mock_conf_cls, \
+             patch("api.proxyApi.runFlask") as mock_flask:
+            mock_conf = MagicMock()
+            mock_conf.gatewayEnabled = False
+            mock_conf_cls.return_value = mock_conf
+
+            launcher_mod.startAll()
+
+            mock_flask.assert_called_once()
+
+    def test_starts_gateway_thread_and_api(self):
+        with patch.object(launcher_mod, "__beforeStart"), \
+             patch.object(launcher_mod, "ConfigHandler") as mock_conf_cls, \
+             patch("gateway.proxyGateway.ProxyGateway") as mock_gateway_cls, \
+             patch("threading.Thread") as mock_thread_cls, \
+             patch("api.proxyApi.runFlask") as mock_flask:
+            mock_conf = MagicMock()
+            mock_conf.gatewayEnabled = True
+            mock_conf_cls.return_value = mock_conf
+
+            launcher_mod.startAll()
+
+            mock_gateway_cls.assert_called_once()
+            mock_thread_cls.return_value.start.assert_called_once()
+            mock_flask.assert_called_once()
+
+
 class TestBeforeStart:
 
     def test_exits_when_db_check_fails(self):
@@ -57,6 +99,27 @@ class TestBeforeStart:
              patch("helper.launcher.sys") as mock_sys:
             getattr(launcher_mod, "__beforeStart")()
             mock_sys.exit.assert_not_called()
+
+
+class TestCheckStrategy:
+
+    def test_invalid_strategy_returns_false(self):
+        with patch.object(launcher_mod, "ConfigHandler") as mock_conf_cls:
+            mock_conf = MagicMock()
+            mock_conf.defaultStrategy = "not-exist"
+            mock_conf.gatewayStrategy = "random"
+            mock_conf_cls.return_value = mock_conf
+
+            assert getattr(launcher_mod, "__checkStrategy")() is False
+
+    def test_valid_strategy_returns_true(self):
+        with patch.object(launcher_mod, "ConfigHandler") as mock_conf_cls:
+            mock_conf = MagicMock()
+            mock_conf.defaultStrategy = "weighted"
+            mock_conf.gatewayStrategy = "round_robin"
+            mock_conf_cls.return_value = mock_conf
+
+            assert getattr(launcher_mod, "__checkStrategy")() is True
 
 
 class TestCheckDBConfig:

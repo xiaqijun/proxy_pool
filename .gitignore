@@ -11,3 +11,7 @@ docs/specs/
 .coverage
 .pytest_cache/
 htmlcov/
+data/
+dashboard/node_modules/
+dashboard/dist/
+.env

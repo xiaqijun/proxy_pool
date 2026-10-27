@@ -72,6 +72,63 @@ class TestProxyHandlerGet:
         handler._mock_db.get.assert_called_once_with(True)
 
 
+class TestProxyHandlerStrategy:
+    """按策略获取代理测试"""
+
+    @staticmethod
+    def _proxy_list():
+        return [
+            Proxy("1.2.3.4:8080", source="test", https=False).to_json,
+            Proxy("5.6.7.8:443", source="test", https=True).to_json,
+        ]
+
+    def test_get_with_strategy_uses_getAll(self):
+        handler = _make_handler()
+        handler._mock_db.getAll.return_value = self._proxy_list()
+
+        result = handler.get(https=False, strategy="round_robin", key="unit")
+
+        assert result.proxy in ("1.2.3.4:8080", "5.6.7.8:443")
+        handler._mock_db.getAll.assert_called_once_with(False)
+
+    def test_get_with_random_reuses_db_get(self):
+        handler = _make_handler()
+        proxy = Proxy("1.2.3.4:8080", source="test")
+        handler._mock_db.get.return_value = proxy.to_json
+
+        result = handler.get(https=False, strategy="random", exclude=set())
+
+        assert result.proxy == "1.2.3.4:8080"
+        handler._mock_db.get.assert_called_once_with(False)
+        handler._mock_db.getAll.assert_not_called()
+
+    def test_get_with_strategy_empty_pool(self):
+        handler = _make_handler()
+        handler._mock_db.getAll.return_value = []
+
+        result = handler.get(https=False, strategy="round_robin", key="unit")
+
+        assert result is None
+
+    def test_get_with_exclude(self):
+        handler = _make_handler()
+        handler.conf.defaultStrategy = "random"
+        handler._mock_db.getAll.return_value = self._proxy_list()
+
+        result = handler.get(https=False, exclude={"1.2.3.4:8080"})
+
+        assert result.proxy == "5.6.7.8:443"
+
+    def test_get_exclude_all_returns_none(self):
+        handler = _make_handler()
+        handler.conf.defaultStrategy = "random"
+        handler._mock_db.getAll.return_value = self._proxy_list()
+
+        result = handler.get(https=False, exclude={"1.2.3.4:8080", "5.6.7.8:443"})
+
+        assert result is None
+
+
 class TestProxyHandlerPop:
     """pop() 测试"""
 

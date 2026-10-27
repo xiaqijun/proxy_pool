@@ -14,6 +14,7 @@
 __author__ = 'JHao'
 
 from helper.proxy import Proxy
+from helper.strategy import STRATEGY_RANDOM, StrategyManager, normalizeStrategy
 from db.dbClient import DbClient
 from handler.configHandler import ConfigHandler
 
@@ -26,15 +27,39 @@ class ProxyHandler(object):
         self.db = DbClient(self.conf.dbConn)
         self.db.changeTable(self.conf.tableName)
 
-    def get(self, https=False):
+    def get(self, https=False, strategy=None, key=None, exclude=None):
         """
         return a proxy
+
+        默认行为保持不变：不指定策略且不排除代理时，直接调用 DbClient.get 随机取一个。
+        指定策略后从代理列表中按 random/round_robin/weighted 选择。
+
         Args:
             https: True/False
+            strategy: 代理选择策略，None 表示使用默认行为
+            key: 轮询状态 key
+            exclude: 需要排除的代理地址集合
         Returns:
+            Proxy 或 None
         """
-        proxy = self.db.get(https)
-        return Proxy.createFromJson(proxy) if proxy else None
+        normalized_strategy = normalizeStrategy(strategy, default=None)
+
+        # 随机策略且无需排除代理时，复用 DbClient.get，避免读取整个代理池
+        if not exclude and (normalized_strategy == STRATEGY_RANDOM
+                            or (normalized_strategy is None and not strategy)):
+            proxy = self.db.get(https)
+            return Proxy.createFromJson(proxy) if proxy else None
+
+        proxies = self.getAll(https)
+        if exclude:
+            excluded = set(exclude)
+            proxies = [item for item in proxies if item.proxy not in excluded]
+        if not proxies:
+            return None
+
+        if normalized_strategy is None:
+            normalized_strategy = normalizeStrategy(self.conf.defaultStrategy)
+        return StrategyManager().select(proxies, strategy=normalized_strategy, key=key)
 
     def pop(self, https):
         """

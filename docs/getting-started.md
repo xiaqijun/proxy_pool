@@ -30,19 +30,31 @@ PORT = 5010                    # 监听端口
 # 数据库
 DB_CONN = 'redis://:pwdstring@127.0.0.1:6379/0'
 
-# 代理采集方法
-PROXY_FETCHER = [
-    "freeProxy01",      # 所有 fetch 方法位于 fetcher/proxyFetcher.py
-    "freeProxy02",
-    # ....
-]
+# 代理更换方式：random / round_robin / weighted
+PROXY_STRATEGY = "random"
+
+# 稳定代理网关
+GATEWAY_HOST = "0.0.0.0"
+GATEWAY_PORT = 5011
+GATEWAY_STRATEGY = "random"
+GATEWAY_AUTH = ""          # 如 "user:password"
+
+# 网关 WAF 检测
+WAF_DETECT_ENABLED = True
+WAF_SCORE_THRESHOLD = 2
+
+# 监控工作台
+MONITOR_ENABLED = True
+MONITOR_DB_PATH = "data/monitor.db"
+MONITOR_AUTH_USER = "admin"
+MONITOR_AUTH_PASSWORD = "change-me"   # 请务必修改
 ```
 
 更多配置请参考 [配置参考](configuration.md)。
 
 ## 启动项目
 
-完整程序包含两部分：`schedule` 调度程序和 `server` API 服务。调度程序负责采集和验证代理，API 服务提供代理服务 HTTP 接口。
+完整程序包含三部分：`schedule` 调度程序、`server` API 服务和 `gateway` 稳定代理网关。调度程序负责采集和验证代理，API 服务提供策略化取代理接口，网关提供固定代理地址并自动更换上游代理。
 
 ### 方式一：使用 `proxy_pool.sh`（推荐）
 
@@ -67,7 +79,7 @@ PROXY_FETCHER = [
 
 ### 方式二：使用 `proxyPool.py`
 
-`proxyPool.py` 是项目的 Python CLI 入口，可以分别启动调度程序和 API 服务：
+`proxyPool.py` 是项目的 Python CLI 入口，可以分别启动各服务：
 
 ```console
 # 启动调度程序
@@ -75,7 +87,28 @@ python proxyPool.py schedule
 
 # 启动 API 服务
 python proxyPool.py server
+
+# 启动稳定代理网关（默认 0.0.0.0:5011）
+python proxyPool.py gateway
+
+# 在同一进程内同时启动 API 和网关
+python proxyPool.py all
 ```
+
+客户端把网关地址配置为 HTTP 代理即可：
+
+```console
+curl -x http://127.0.0.1:5011 http://httpbin.org/ip
+curl -x http://127.0.0.1:5011 https://httpbin.org/ip
+```
+
+启动 API 后还可以访问监控工作台：
+
+```text
+http://127.0.0.1:5010/dashboard/
+```
+
+默认账号 `admin`，密码由 `MONITOR_AUTH_PASSWORD` 配置（默认 `change-me`，请务必修改）。详见 [监控工作台](dashboard.md)。
 
 ## 服务管理
 
@@ -105,10 +138,11 @@ python proxyPool.py server
 
 ### 端口被占用
 
-修改 `setting.py` 中的 `PORT` 配置：
+修改 `setting.py` 中的 `PORT`（API）或 `GATEWAY_PORT`（网关）配置：
 
 ```python
-PORT = 5010  # 修改为其他端口
+PORT = 5010            # API 端口
+GATEWAY_PORT = 5011    # 网关端口
 ```
 
 ### 无法停止服务

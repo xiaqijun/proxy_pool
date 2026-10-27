@@ -8,7 +8,7 @@ hide:
 
 # ProxyPool
 
-**Python爬虫代理IP池** — 定时采集、验证、存储免费代理，通过 RESTful API 提供服务。
+**Python爬虫代理IP池** — 定时采集、验证、存储免费代理，通过策略化 API 或稳定代理网关提供服务。
 
 [:octicons-mark-github-16: GitHub](https://github.com/jhao104/proxy_pool){ .md-button }
 [:octicons-rocket-16: 快速开始](getting-started.md){ .md-button .md-button--primary }
@@ -43,6 +43,30 @@ Redis/SSDB 持久化存储，支持集群部署，数据不丢失。
 
 <div class="tx-feature" markdown>
 
+### :material-swap-horizontal: 多种更换方式
+
+支持随机、轮询、加权三种代理更换方式，API 和稳定代理网关均可使用。
+
+</div>
+
+<div class="tx-feature" markdown>
+
+### :material-access-point: 稳定代理地址
+
+内置 HTTP 代理网关，客户端只需配置一次地址，网关自动更换上游代理，并自动识别 WAF 拦截后重试。
+
+</div>
+
+<div class="tx-feature" markdown>
+
+### :material-view-dashboard: 监控工作台
+
+独立 React 工作台，SSE 实时推送代理池、网关、WAF 指标和趋势，支持在线策略切换。
+
+</div>
+
+<div class="tx-feature" markdown>
+
 ### :material-api: RESTful API
 
 提供 `/get`、`/pop`、`/all`、`/count`、`/delete` 等接口，开箱即用。
@@ -51,17 +75,17 @@ Redis/SSDB 持久化存储，支持集群部署，数据不丢失。
 
 <div class="tx-feature" markdown>
 
-### :material-docker: Docker 部署
+### :material-clock-fast: 定时调度
 
-一条命令启动，支持 docker-compose，自带 Redis 服务。
+APScheduler 驱动，自动维护代理池数量，无需人工干预。
 
 </div>
 
 <div class="tx-feature" markdown>
 
-### :material-clock-fast: 定时调度
+### :material-docker: Docker 部署
 
-APScheduler 驱动，自动维护代理池数量，无需人工干预。
+一条命令启动，支持 docker-compose，自带 Redis 服务。
 
 </div>
 
@@ -84,17 +108,22 @@ python proxyPool.py schedule
 
 # 启动 API 服务
 python proxyPool.py server
+
+# 启动稳定代理网关
+python proxyPool.py gateway
 ```
 
-启动后访问 `http://127.0.0.1:5010/get` 即可获取一个代理。
+监控工作台：`http://127.0.0.1:5010/dashboard/`。
+
+启动后访问 `http://127.0.0.1:5010/get` 即可获取一个代理；也可以把 `http://127.0.0.1:5011` 配置为 HTTP 代理，由网关自动更换上游代理。
 
 ## API 示例
 
 ```python
 import requests
 
-# 获取代理
-proxy = requests.get("http://127.0.0.1:5010/get/").json()
+# 获取代理，可指定 random / round_robin / weighted
+proxy = requests.get("http://127.0.0.1:5010/get/?strategy=round_robin").json()
 
 # 使用代理
 html = requests.get(
@@ -111,7 +140,10 @@ html = requests.get(
 | [项目结构](project-structure.md) | 目录结构与核心模块说明 |
 | [配置参考](configuration.md) | `setting.py` 全部配置项详解 |
 | [API 使用](api.md) | RESTful API 端点与调用示例 |
+| [稳定代理网关](gateway.md) | 固定代理地址、自动更换上游代理 |
+| [监控工作台](dashboard.md) | 代理池、网关、WAF 监控与在线策略配置 |
 | [Docker 部署](docker.md) | Docker / docker-compose 部署方式 |
+| [托管部署](deployment.md) | VPS、PaaS、反向代理和 HTTPS 部署说明 |
 | [扩展代理源](extending/fetcher.md) | 自定义代理采集方法 |
 | [扩展校验器](extending/validator.md) | 自定义代理校验规则 |
 | [变更日志](changelog.md) | 版本发布记录 |

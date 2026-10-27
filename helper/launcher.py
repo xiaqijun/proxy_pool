@@ -32,9 +32,40 @@ def startScheduler():
     runScheduler()
 
 
+def startGateway():
+    __beforeStart()
+    from gateway.proxyGateway import runGateway
+    runGateway()
+
+
+def startAll():
+    """同时启动 API 服务和代理网关"""
+    __beforeStart()
+    conf = ConfigHandler()
+
+    if conf.gatewayEnabled:
+        import threading
+        from gateway.proxyGateway import ProxyGateway
+
+        gateway = ProxyGateway()
+        gateway_thread = threading.Thread(
+            target=gateway.run,
+            name="proxy-gateway",
+            daemon=True,
+        )
+        gateway_thread.start()
+        log.info("Proxy gateway started in background thread")
+
+    from api.proxyApi import runFlask
+    runFlask()
+
+
 def __beforeStart():
     __showVersion()
     __showConfigure()
+    if not __checkStrategy():
+        log.info('exit!')
+        sys.exit()
     if __checkDBConfig():
         log.info('exit!')
         sys.exit()
@@ -53,6 +84,44 @@ def __showConfigure():
     if exclude:
         log.info("ProxyPool configure PROXY_FETCHER_EXCLUDE: %s" % exclude)
     log.info("ProxyPool configure PROXY_FETCHER: auto-scan (enabled=True, exclude=%s)" % exclude)
+    log.info("ProxyPool configure PROXY_STRATEGY: %s" % conf.defaultStrategy)
+    if conf.gatewayEnabled:
+        log.info("ProxyPool configure GATEWAY: %s:%s (strategy=%s, auth=%s)" % (
+            conf.gatewayHost,
+            conf.gatewayPort,
+            conf.gatewayStrategy,
+            "on" if conf.gatewayAuth else "off",
+        ))
+        log.info("ProxyPool configure WAF: %s (threshold=%s)" % (
+            "on" if conf.wafDetectEnabled else "off",
+            conf.wafScoreThreshold,
+        ))
+
+    if conf.monitorEnabled:
+        log.info("ProxyPool configure MONITOR: /dashboard/ (auth=%s)" % (
+            "on" if conf.monitorAuthPassword else "off",
+        ))
+        if conf.monitorAuthPassword in ("", "change-me"):
+            log.warning("Monitor dashboard uses the default password; "
+                        "set MONITOR_AUTH_PASSWORD before exposing it")
+
+
+def __checkStrategy():
+    """检查代理选择策略配置是否合法"""
+    from helper.strategy import UnknownStrategyError, normalizeStrategy
+
+    conf = ConfigHandler()
+    strategies = [("PROXY_STRATEGY", conf.defaultStrategy)]
+    if conf.gatewayEnabled:
+        strategies.append(("GATEWAY_STRATEGY", conf.gatewayStrategy))
+
+    for name, value in strategies:
+        try:
+            normalizeStrategy(value)
+        except UnknownStrategyError as error:
+            log.error("%s invalid: %s" % (name, error))
+            return False
+    return True
 
 
 def __checkDBConfig():
