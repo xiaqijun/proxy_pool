@@ -28,7 +28,10 @@ class ProxiFlyFetcher(BaseFetcher):
     enabled = True  # 是否启用
 
     def fetch(self):
-        r = WebRequest().get("https://cdn.jsdelivr.net/gh/proxifly/free-proxy-list@main/proxies/all/data.json", timeout=10)
+        # jsDelivr 对超过 20MB 的 all/data.json 返回 403，这里改用按国家拆分的 CN 文件
+        r = WebRequest().get(
+            "https://cdn.jsdelivr.net/gh/proxifly/free-proxy-list@main/"
+            "proxies/countries/CN/data.json", timeout=10)
         try:
             for each in r.json:
                 if each.get("geolocation", {}).get("country", "") == "CN" and each.get("protocol") == "http":

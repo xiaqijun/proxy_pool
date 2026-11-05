@@ -22,8 +22,8 @@ proxy_pool/
 ├── fetcher/                # 代理采集器
 │   ├── baseFetcher.py      #   BaseFetcher 基类（共享解析方法）
 │   └── sources/            #   各代理源独立文件
-│       ├── zdaye.py        #     站大爷
-│       ├── kxdaili.py      #     开心代理
+│       ├── proxyspace.py   #     Proxyspace（按国家 txt）
+│       ├── proxyhub.py     #     Proxyhub
 │       ├── kuaidaili.py    #     快代理
 │       ├── geonode.py      #     Geonode
 │       └── ...             #     其他代理源

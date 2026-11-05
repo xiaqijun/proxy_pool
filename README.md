@@ -327,18 +327,19 @@ class MyProxyFetcher(BaseFetcher):
    
   | 代理名称         |  状态  | 更新速度 | 可用率 | 地址                                                | 代码                                                      |
   |--------------|  ---- |------|-----|---------------------------------------------------|---------------------------------------------------------|
-  | 开心代理         |   ✔   | ★    | *   | [地址](http://www.kxdaili.com/)                     | [`kxdaili.py`](/fetcher/sources/kxdaili.py)             |
   | 快代理          |  ✔    | ★    | *   | [地址](https://www.kuaidaili.com/)                  | [`kuaidaili.py`](/fetcher/sources/kuaidaili.py)         |
   | 云代理          |  ✔    | ★    | *   | [地址](http://www.ip3366.net/)                      | [`ip3366.py`](/fetcher/sources/ip3366.py)               |
   | 小幻代理         |  ✔    | ★    | *   | [地址](https://ip.ihuan.me/)                        | [`ihuan.py`](/fetcher/sources/ihuan.py)                 |
   | 89代理         |  ✔    | ★★   | **  | [地址](https://www.89ip.cn)                         | [`ip89.py`](/fetcher/sources/ip89.py)                   |
-  | 稻壳代理         |  ✔    | ★★   | *** | [地址](https://www.docip.ne)                        | [`docip.py`](/fetcher/sources/docip.py)                 |
   | 谷德代理         |  ✔    | ★★   | *** | [地址](https://www.goodips.com)                     | [`goodips.py`](/fetcher/sources/goodips.py)             |
-  | 66代理         |  ✔    | ★★   | *   | [地址](https://www.66daili.com)                     | [`daili66.py`](/fetcher/sources/daili66.py)             |
   | Proxifly     |  ✔    | ★★   | **  | [地址](https://proxifly.dev)                        | [`proxifly.py`](/fetcher/sources/proxifly.py)           |
   | FreeVPNNode  |  ✔    | ★★   | *   | [地址](https://cn.freevpnnode.com)                  | [`freevpnnode.py`](/fetcher/sources/freevpnnode.py)     |
   | Geonode      |  ✔    | ★★   | **  | [地址](https://geonode.com)                         | [`geonode.py`](/fetcher/sources/geonode.py)             |
   | RoundProxies |  ✔    | ★    | *   | [地址](https://roundproxies.com/free-proxy-list)    | [`roundproxies.py`](/fetcher/sources/roundproxies.py)   |
+  | Proxyspace   |  ✔    | ★★   | ★★  | [地址](https://proxyspace.pro)                      | [`proxyspace.py`](/fetcher/sources/proxyspace.py)       |
+  | Proxyhub     |  ✔    | ★★   | ★★  | [地址](https://proxyhub.me)                         | [`proxyhub.py`](/fetcher/sources/proxyhub.py)           |
+  | FreeProxyWorld |  ✔  | ★★   | ★★  | [地址](https://www.freeproxy.world)                 | [`freeproxyworld.py`](/fetcher/sources/freeproxyworld.py) |
+  | 蜜蜂代理           |  ✔    | ★    | ★   | [地址](https://www.beesproxy.com/free)              | [`beesproxy.py`](/fetcher/sources/beesproxy.py)         |
 
   
   如果还有其他好的免费代理网站, 可以在提交在[issues](https://github.com/jhao104/proxy_pool/issues/71), 下次更新时会考虑在项目中支持。

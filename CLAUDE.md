@@ -135,7 +135,7 @@ tests/
 - **文件命名**：驼峰命名，如 `proxyFetcher.py`、`dbClient.py`、`redisClient.py`、`webRequest.py`
 - **类命名**：帕斯卡命名，如 `ProxyFetcher`、`RedisClient`、`SsdbClient`、`ProxyValidator`
 - **方法命名**：混合风格——数据库/爬取器方法使用驼峰命名（`getAll`、`getCount`、`changeTable`、`parseProxiesFromText`），属性和辅助方法使用下划线命名（`user_agent`、`fail_count`、`check_count`）
-- **爬取器文件**：小写命名（如 `zdaye.py`、`kuaidaili.py`），类名 PascalCase（如 `ZdayeFetcher`、`KuaidailiFetcher`）
+- **爬取器文件**：小写命名（如 `kuaidaili.py`、`proxyspace.py`），类名 PascalCase（如 `KuaidailiFetcher`、`ProxyspaceFetcher`）
 - **常量**（在 `setting.py` 中）：大写下划线命名（`DB_CONN`、`PROXY_FETCHER_EXCLUDE`、`HTTP_URL`、`MAX_FAIL_COUNT`）
 - **变量**：下划线命名（`proxy_obj`、`proxy_str`、`https`）
 - **注释/文档字符串**：源文件头部和行内注释通常使用中文（普通话）

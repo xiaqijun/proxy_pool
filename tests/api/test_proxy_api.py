@@ -109,7 +109,7 @@ class TestGetStrategy:
         assert resp.status_code == 400
         data = resp.get_json()
         assert data["src"] == "unknown strategy"
-        assert mocks["get"].not_called
+        mocks["get"].assert_not_called()
 
     def test_get_format_text(self, client, mocks):
         proxy = Proxy("1.2.3.4:8080", source="test")

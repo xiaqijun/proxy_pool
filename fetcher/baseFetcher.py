@@ -19,7 +19,7 @@ class BaseFetcher(object):
     """代理源基类"""
 
     # ---- 子类必须声明 ----
-    name = ""        # 唯一标识，如 "zdaye"
+    name = ""        # 唯一标识，如 "kuaidaili"
     url = ""         # 源网站首页 URL
 
     # ---- 子类可覆盖 ----

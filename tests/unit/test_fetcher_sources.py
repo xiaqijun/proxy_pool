@@ -55,21 +55,21 @@ class TestFetcherInterface(object):
     """所有 fetcher 的接口约定"""
 
     FETCHER_CLASSES = [
-        ("fetcher.sources.kxdaili", "KxdailiFetcher"),
         ("fetcher.sources.ip3366", "Ip3366Fetcher"),
         ("fetcher.sources.ip89", "Ip89Fetcher"),
-        ("fetcher.sources.docip", "DocipFetcher"),
         ("fetcher.sources.goodips", "GoodipsFetcher"),
         ("fetcher.sources.geonode", "GeonodeFetcher"),
 
         ("fetcher.sources.kuaidaili", "KuaidailiFetcher"),
         ("fetcher.sources.freevpnnode", "FreeVPNNodeFetcher"),
         ("fetcher.sources.scdn", "ScdnFetcher"),
-        ("fetcher.sources.zdaye", "ZdayeFetcher"),
         ("fetcher.sources.ihuan", "IhuanFetcher"),
         ("fetcher.sources.proxifly", "ProxiFlyFetcher"),
-        ("fetcher.sources.daili66", "DaiLi66Fetcher"),
         ("fetcher.sources.roundproxies", "RoundProxiesFetcher"),
+        ("fetcher.sources.proxyspace", "ProxyspaceFetcher"),
+        ("fetcher.sources.proxyhub", "ProxyhubFetcher"),
+        ("fetcher.sources.beesproxy", "BeesproxyFetcher"),
+        ("fetcher.sources.freeproxyworld", "FreeProxyWorldFetcher"),
     ]
 
     def test_all_fetchers_have_name_url_enabled(self):
@@ -95,19 +95,6 @@ class TestFetcherInterface(object):
 
 # --------------- 各 fetcher 逻辑测试 ---------------
 
-class TestKxdailiFetcher(object):
-
-    @patch("fetcher.sources.kxdaili.WebRequest")
-    def test_fetch(self, mock_wr):
-        from fetcher.sources.kxdaili import KxdailiFetcher
-        html = '<table class="active"><tr><th>IP</th><th>Port</th></tr>' \
-               '<tr><td>1.2.3.4</td><td>8080</td></tr></table>'
-        tree = etree.HTML(html)
-        mock_wr.return_value.get.return_value = _make_response(tree=tree)
-        result = list(KxdailiFetcher().fetch())
-        assert "1.2.3.4:8080" in result
-
-
 class TestIp3366Fetcher(object):
 
     @patch("fetcher.sources.ip3366.WebRequest")
@@ -130,17 +117,16 @@ class TestIp89Fetcher(object):
         result = list(Ip89Fetcher().fetch())
         assert "1.2.3.4:8080" in result
 
-
-class TestDocipFetcher(object):
-
-    @patch("fetcher.sources.docip.WebRequest")
-    def test_fetch(self, mock_wr):
-        from fetcher.sources.docip import DocipFetcher
-        json_data = {"data": [{"ip": "1.2.3.4:8080"}, {"ip": "5.6.7.8:3128"}]}
-        mock_wr.return_value.get.return_value = _make_response(json_data=json_data)
-        result = list(DocipFetcher().fetch())
+    @patch("fetcher.sources.ip89.WebRequest")
+    def test_fetch_api_first(self, mock_wr):
+        """API 返回纯文本时直接使用，不再请求列表页"""
+        from fetcher.sources.ip89 import Ip89Fetcher
+        mock_wr.return_value.get.return_value = _make_response(
+            text="1.2.3.4:8080\n5.6.7.8:3128")
+        result = list(Ip89Fetcher().fetch())
         assert "1.2.3.4:8080" in result
         assert "5.6.7.8:3128" in result
+        assert mock_wr.return_value.get.call_count == 1
 
 
 class TestGoodipsFetcher(object):
@@ -222,69 +208,6 @@ class TestScdnFetcher(object):
         assert "1.2.3.4:8080" in result
 
 
-class TestZdayeFetcher(object):
-
-    @patch("fetcher.sources.zdaye.WebRequest")
-    @patch("fetcher.sources.zdaye.sleep", return_value=None)
-    @patch("fetcher.sources.zdaye.datetime")
-    def test_fetch_recent(self, mock_dt, mock_sleep, mock_wr):
-        from fetcher.sources.zdaye import ZdayeFetcher
-        from datetime import datetime as real_datetime
-        # 模拟最新帖子时间在5分钟内
-        mock_dt.now.return_value = real_datetime(2026, 5, 31, 12, 0, 0)
-        mock_dt.strptime.return_value = real_datetime(2026, 5, 31, 11, 58, 0)
-
-        index_tree = etree.HTML(
-            '<span class="thread_time_info">2026/05/31 11:58:00</span>'
-            '<h3 class="thread_title"><a href="/detail/1">test</a></h3>')
-        detail_tree = etree.HTML(_html_table([("1.2.3.4", "8080")]))
-
-        def side_effect(url, **kwargs):
-            resp = MagicMock()
-            if "free" in url:
-                resp.tree = index_tree
-            else:
-                resp.tree = detail_tree
-            return resp
-
-        mock_wr.return_value.get.side_effect = side_effect
-        result = list(ZdayeFetcher().fetch())
-        assert "1.2.3.4:8080" in result
-
-    @patch("fetcher.sources.zdaye.WebRequest")
-    @patch("fetcher.sources.zdaye.datetime")
-    def test_fetch_old_returns_empty(self, mock_dt, mock_wr):
-        from fetcher.sources.zdaye import ZdayeFetcher
-        from datetime import datetime as real_datetime
-        # 模拟最新帖子时间超过5分钟
-        mock_dt.now.return_value = real_datetime(2026, 5, 31, 12, 0, 0)
-        mock_dt.strptime.return_value = real_datetime(2026, 5, 31, 10, 0, 0)
-
-        index_tree = etree.HTML(
-            '<span class="thread_time_info">2026/05/31 10:00:00</span>'
-            '<h3 class="thread_title"><a href="/detail/1">test</a></h3>')
-        mock_wr.return_value.get.return_value = _make_response(tree=index_tree)
-        result = list(ZdayeFetcher().fetch())
-        assert result == []
-
-    @patch("fetcher.sources.zdaye.WebRequest")
-    @patch("fetcher.sources.zdaye.datetime")
-    def test_fetch_old_cross_day_returns_empty(self, mock_dt, mock_wr):
-        """跨天帖子应判定为过期（total_seconds 而非 seconds）"""
-        from fetcher.sources.zdaye import ZdayeFetcher
-        from datetime import datetime as real_datetime
-        # 帖子是昨天 23:59，当前是今天 00:01（差 2 分钟，但跨天）
-        mock_dt.now.return_value = real_datetime(2026, 5, 31, 0, 1, 0)
-        mock_dt.strptime.return_value = real_datetime(2026, 5, 30, 23, 59, 0)
-
-        index_tree = etree.HTML(
-            '<span class="thread_time_info">2026/05/30 23:59:00</span>'
-            '<h3 class="thread_title"><a href="/detail/1">test</a></h3>')
-        mock_wr.return_value.get.return_value = _make_response(tree=index_tree)
-        result = list(ZdayeFetcher().fetch())
-        assert result == []
-
-
 class TestIhuanFetcher(object):
 
     @patch("fetcher.sources.ihuan.requests")
@@ -361,30 +284,6 @@ class TestProxiFlyFetcher(object):
         assert "9.9.9.9:8080" not in result
 
 
-class TestDaiLi66Fetcher(object):
-
-    @patch("fetcher.sources.daili66.WebRequest")
-    def test_fetch(self, mock_wr):
-        from fetcher.sources.daili66 import DaiLi66Fetcher
-        json_data = {
-            "data": [
-                {"ip": "1.2.3.4", "port": "8080"},
-                {"ip": "5.6.7.8", "port": "3128"},
-            ]
-        }
-        mock_wr.return_value.get.return_value = _make_response(json_data=json_data)
-        result = list(DaiLi66Fetcher().fetch())
-        assert "1.2.3.4:8080" in result
-        assert "5.6.7.8:3128" in result
-
-    @patch("fetcher.sources.daili66.WebRequest")
-    def test_fetch_empty_data_returns_empty(self, mock_wr):
-        from fetcher.sources.daili66 import DaiLi66Fetcher
-        mock_wr.return_value.get.return_value = _make_response(json_data={})
-        result = list(DaiLi66Fetcher().fetch())
-        assert result == []
-
-
 class TestRoundProxiesFetcher(object):
 
     @patch("fetcher.sources.roundproxies.WebRequest")
@@ -414,3 +313,110 @@ class TestRoundProxiesFetcher(object):
         mock_wr.return_value.get.return_value = _make_response(json_data=None)
         result = list(RoundProxiesFetcher().fetch())
         assert result == []
+
+
+class TestProxyspaceFetcher(object):
+
+    @patch("fetcher.sources.proxyspace.WebRequest")
+    def test_fetch(self, mock_wr):
+        from fetcher.sources.proxyspace import ProxyspaceFetcher
+        mock_wr.return_value.get.return_value = _make_response(
+            text="1.2.3.4:8080\n5.6.7.8:3128\n")
+        result = list(ProxyspaceFetcher().fetch())
+        assert "1.2.3.4:8080" in result
+        assert "5.6.7.8:3128" in result
+        # CN http + CN https 两个地址
+        assert mock_wr.return_value.get.call_count == 2
+
+    @patch("fetcher.sources.proxyspace.WebRequest")
+    def test_fetch_dedup(self, mock_wr):
+        from fetcher.sources.proxyspace import ProxyspaceFetcher
+        mock_wr.return_value.get.return_value = _make_response(
+            text="1.2.3.4:8080\n1.2.3.4:8080\n")
+        result = list(ProxyspaceFetcher().fetch())
+        assert result == ["1.2.3.4:8080"]
+
+
+def _proxyhub_html(rows):
+    html = "<table><tbody>"
+    for ip, port in rows:
+        html += ('<tr><td class="ip-cell" data-label="IP">'
+                 '<span class="ip-text" title="%s">%s</span></td>'
+                 '<td class="port-cell"><span class="port-text">%s</span></td>'
+                 '<td class="protocols-cell">HTTP</td></tr>' % (ip, ip, port))
+    return html + "</tbody></table>"
+
+
+class TestProxyhubFetcher(object):
+
+    @patch("fetcher.sources.proxyhub.WebRequest")
+    def test_fetch(self, mock_wr):
+        from fetcher.sources.proxyhub import ProxyhubFetcher
+        tree = etree.HTML(_proxyhub_html([("1.2.3.4", "8080"), ("5.6.7.8", "3128")]))
+        mock_wr.return_value.get.return_value = _make_response(tree=tree)
+        result = list(ProxyhubFetcher().fetch())
+        assert "1.2.3.4:8080" in result
+        assert "5.6.7.8:3128" in result
+        assert mock_wr.return_value.get.call_count == ProxyhubFetcher.page_count
+
+    @patch("fetcher.sources.proxyhub.WebRequest")
+    def test_fetch_text_fallback(self, mock_wr):
+        from fetcher.sources.proxyhub import ProxyhubFetcher
+        fetcher = ProxyhubFetcher()
+        fetcher.page_count = 1
+        mock_wr.return_value.get.return_value = _make_response(
+            tree=None, text="1.2.3.4:8080")
+        result = list(fetcher.fetch())
+        assert "1.2.3.4:8080" in result
+
+
+class TestBeesproxyFetcher(object):
+
+    @patch("fetcher.sources.beesproxy.WebRequest")
+    def test_fetch(self, mock_wr):
+        from fetcher.sources.beesproxy import BeesproxyFetcher
+        tree = etree.HTML(_html_table([("1.2.3.4", "8080"), ("5.6.7.8", "3128")]))
+        mock_wr.return_value.get.return_value = _make_response(tree=tree)
+        result = list(BeesproxyFetcher().fetch())
+        assert "1.2.3.4:8080" in result
+        assert "5.6.7.8:3128" in result
+
+    @patch("fetcher.sources.beesproxy.WebRequest")
+    def test_fetch_text_fallback(self, mock_wr):
+        from fetcher.sources.beesproxy import BeesproxyFetcher
+        mock_wr.return_value.get.return_value = _make_response(
+            tree=None, text="1.2.3.4:8080")
+        result = list(BeesproxyFetcher().fetch())
+        assert "1.2.3.4:8080" in result
+
+
+def _freeproxyworld_html(rows):
+    html = "<table><tbody>"
+    for ip, port in rows:
+        html += ('<tr><td style="font-weight: 500;">%s</td>'
+                 '<td><a href="/?port=%s">%s</a></td>'
+                 '<td><a href="/?country=CN">China</a></td></tr>' % (ip, port, port))
+    return html + "</tbody></table>"
+
+
+class TestFreeProxyWorldFetcher(object):
+
+    @patch("fetcher.sources.freeproxyworld.WebRequest")
+    def test_fetch(self, mock_wr):
+        from fetcher.sources.freeproxyworld import FreeProxyWorldFetcher
+        tree = etree.HTML(_freeproxyworld_html([("1.2.3.4", "8080"), ("5.6.7.8", "3128")]))
+        mock_wr.return_value.get.return_value = _make_response(tree=tree)
+        result = list(FreeProxyWorldFetcher().fetch())
+        assert "1.2.3.4:8080" in result
+        assert "5.6.7.8:3128" in result
+        assert mock_wr.return_value.get.call_count == FreeProxyWorldFetcher.page_count
+
+    @patch("fetcher.sources.freeproxyworld.WebRequest")
+    def test_fetch_text_fallback(self, mock_wr):
+        from fetcher.sources.freeproxyworld import FreeProxyWorldFetcher
+        fetcher = FreeProxyWorldFetcher()
+        fetcher.page_count = 1
+        mock_wr.return_value.get.return_value = _make_response(
+            tree=None, text="1.2.3.4:8080")
+        result = list(fetcher.fetch())
+        assert "1.2.3.4:8080" in result
